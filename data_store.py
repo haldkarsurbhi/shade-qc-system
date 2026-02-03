@@ -1,8 +1,7 @@
-from grouping import assign_shade_groups
+from grouping import assign_shade_group
 
-# ---------- GLOBAL STORAGE ----------
+# ----------- GLOBAL STORAGE -----------
 ROLL_DATA = []
-
 
 def add_roll(roll_no, image_path, lab):
     ROLL_DATA.append({
@@ -13,12 +12,13 @@ def add_roll(roll_no, image_path, lab):
         "delta_e": None
     })
 
-
 def get_all_rolls():
     return ROLL_DATA
 
-
 def perform_grouping(tolerance=1.5):
     global ROLL_DATA
-    ROLL_DATA = assign_shade_groups(ROLL_DATA, tolerance)
+    ROLL_DATA = assign_shade_group(ROLL_DATA, tolerance)
+    return ROLL_DATA
+
+def save_results():
     return ROLL_DATA

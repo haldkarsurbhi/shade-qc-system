@@ -1,44 +1,64 @@
 from color_engine import delta_e_2000
 
+# =================================================
+# PHASE 10: SHADE GROUPING LOGIC (Industry Friendly)
+# =================================================
 
-def assign_shade_groups(rolls, tolerance=1.2):
+def assign_shade_group(delta_e):
     """
-    Leader-based relative grouping using ΔE2000
+    Assigns shade group and decision based on ΔE2000
+    """
+
+    if delta_e <= 2.0:
+        return "A", "ACCEPT"
+
+    elif delta_e <= 4.0:
+        return "B", "ACCEPT"
+
+    elif delta_e <= 6.0:
+        return "C", "ACCEPT"
+
+    elif delta_e <= 8.0:
+        return "D", "ACCEPT"
+
+    elif delta_e <= 8.5:
+        return "E", "HOLD"
+
+    else:
+        return "REJECT", "REJECT"
+
+
+def group_rolls_against_master(rolls, master_lab):
+    """
+    Groups fabric rolls by comparing each roll with master shade
 
     rolls: list of dicts
-           [{"roll_no":..., "lab":..., ...}, ...]
+        [
+          {
+            "roll_no": "...",
+            "lab": np.array([L, a, b])
+          }
+        ]
 
-    tolerance:
-        1.0 – 1.3  → A
-        1.3 – 2.0  → B
-        2.0 - 2.5  → C
-        > 2.5      → D
+    master_lab: Lab value of approved reference fabric
     """
 
-    groups = []
+    results = []
 
     for roll in rolls:
-        assigned = False
+        de = delta_e_2000(roll["lab"], master_lab)
+        shade, decision = assign_shade_group(de)
 
-        for idx, group in enumerate(groups):
-            leader_lab = group["leader_lab"]
-            de = delta_e_2000(roll["lab"], leader_lab)
+        roll_result = {
+            "roll_no": roll["roll_no"],
+            "L*": round(roll["lab"][0], 2),
+            "a*": round(roll["lab"][1], 2),
+            "b*": round(roll["lab"][2], 2),
+            "delta_e": round(de, 2),
+            "shade_group": shade,
+            "decision": decision
+        }
 
-            if de <= tolerance:
-                roll["shade_group"] = chr(ord("A") + idx)
-                roll["delta_e"] = round(de, 2)
-                group["members"].append(roll)
-                assigned = True
-                break
+        results.append(roll_result)
 
-        # ---------- CREATE NEW SHADE ----------
-        if not assigned:
-            roll["shade_group"] = chr(ord("A") + len(groups))
-            roll["delta_e"] = 0.0
-
-            groups.append({
-                "leader_lab": roll["lab"],
-                "members": [roll]
-            })
-
-    return rolls
+    return results

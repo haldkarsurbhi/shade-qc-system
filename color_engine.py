@@ -2,11 +2,14 @@ import cv2
 import numpy as np
 from math import sqrt, sin, cos, atan2, exp, radians
 
+# =================================================
+# PHASE 7: IMAGE PRE-PROCESSING
+# =================================================
 
-def extract_mean_rgb(image_path):
+def preprocess_roi(image_path, roi=None):
     """
-    Extract mean RGB from cleaned ROI image.
-    Ignores extreme pixel values (outliers).
+    Loads image, applies basic cleaning and returns ROI.
+    ROI avoids folds, edges, selvedge.
     """
     img = cv2.imread(image_path)
     if img is None:
@@ -14,27 +17,49 @@ def extract_mean_rgb(image_path):
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    pixels = img.reshape(-1, 3).astype(np.float32)
+    # If ROI not provided, take center crop (safe default)
+    h, w, _ = img.shape
+    if roi is None:
+        cx, cy = w // 4, h // 4
+        roi = (cx, cy, w // 2, h // 2)
 
-    lower = np.percentile(pixels, 5, axis=0)
-    upper = np.percentile(pixels, 95, axis=0)
+    x, y, rw, rh = roi
+    roi_img = img[y:y+rh, x:x+rw]
 
-    mask = np.all((pixels >= lower) & (pixels <= upper), axis=1)
-    filtered_pixels = pixels[mask]
+    # Median filter to remove texture noise
+    roi_img = cv2.medianBlur(roi_img, 5)
 
-    return filtered_pixels.mean(axis=0)
-
-
-def rgb_to_lab(rgb):
-    rgb_norm = np.array([[rgb / 255.0]], dtype=np.float32)
-    lab = cv2.cvtColor(rgb_norm, cv2.COLOR_RGB2LAB)
-    return lab[0][0]
+    return roi_img
 
 
-# -------------------------------------------------
-# ΔE 2000 (Industry Standard)
-# -------------------------------------------------
+# =================================================
+# PHASE 8: RGB → L*a*b* (Mean + Std Deviation)
+# =================================================
+
+def extract_lab_stats(roi_img):
+    """
+    Converts ROI to L*a*b* and returns mean & std deviation.
+    """
+    if roi_img is None:
+        return None, None
+
+    lab = cv2.cvtColor(roi_img, cv2.COLOR_RGB2LAB)
+    pixels = lab.reshape(-1, 3).astype(np.float32)
+
+    mean_lab = pixels.mean(axis=0)
+    std_lab = pixels.std(axis=0)
+
+    return mean_lab, std_lab
+
+
+# =================================================
+# PHASE 9: ΔE 2000 (Industry Standard)
+# =================================================
+
 def delta_e_2000(lab1, lab2):
+    """
+    Computes CIEDE2000 colour difference between two Lab values.
+    """
     L1, a1, b1 = lab1.astype(float)
     L2, a2, b2 = lab2.astype(float)
 
